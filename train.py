@@ -1,5 +1,6 @@
 from functools import partial
 
+import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -11,8 +12,7 @@ from torchtext.datasets import IMDB
 
 from src.model.transformer import Transformer
 from src.data.preprocess import PreProcess
-from src.utils.print import iter_print, epoch_print
-from src.utils.config import load_config
+from src.utils import ExperimentLogger, iter_print, epoch_print, load_config
 
 
 def train(model, dataloader, optimizer, criterion, epoch):
@@ -35,7 +35,10 @@ def train(model, dataloader, optimizer, criterion, epoch):
         iter_print(epoch, i, loss.item())
         train_losses.append(loss.item())
 
-    return train_losses
+        if i == 10:
+            break
+
+    return torch.tensor(train_losses)
 
 
 def validate(model, dataloader, criterion, epoch):
@@ -56,7 +59,10 @@ def validate(model, dataloader, criterion, epoch):
         iter_print(epoch, i, loss.item())
         val_losses.append(loss.item())
 
-    return val_losses
+        if i == 10:
+            break
+
+    return torch.tensor(val_losses)
 
 
 def run():
@@ -92,12 +98,18 @@ def run():
     )
     criterion = nn.CrossEntropyLoss(ignore_index=1)
 
+    logger = ExperimentLogger(log_dir="./experiments")
+
     for epoch in range(cfg.num_epochs):
-
         train_losses = train(model, train_dataloader, optimizer, criterion, epoch)
-
         val_losses = validate(model, val_dataloader, criterion, epoch)
 
+        logger.log_params(
+            {
+                "train_loss": train_losses.mean().item(),
+                "val_loss": val_losses.mean().item(),
+            }
+        )
         epoch_print(epoch, val_losses)
 
 
